@@ -1,0 +1,37 @@
+create or replace task TS_LIVECHAT warehouse = COMPUTE_WH 
+schedule = 'using cron 00 01 * * *' 
+COMMENT = 'Insert/update livechat data from AWS S3' 
+error_integration = AWS_SNS_Notification as 
+MERGE INTO LIVECHAT t1 USING (
+    SELECT
+        $1:"LiveChatID"::varchar,
+        $1:"ChatBotID"::number,
+        $1:"Username "::varchar,
+        $1:"LastInputText"::varchar,
+        $1:"LiveChatOpenDateTime"::datetime,
+        $1:"LiveChatClosedDateTime"::datetime,
+        $1:"Agent"::varchar
+    FROM
+        @S3_STAGE/LiveChat.json (FILE_FORMAT => 'JSON') t
+) t2 ON EQUAL_NULL(LiveChatID, t2.$1)
+WHEN NOT MATCHED THEN
+    INSERT
+        (
+            t1.LiveChatID,
+            t1.ChatBotID,
+            t1.Username,
+            t1.LastInputText,
+            t1.LiveChatOpenDateTime,
+            t1.LiveChatClosedDateTime,
+            t1.Agent
+        )
+    VALUES
+        (
+            t2.$1,
+            t2.$2,
+            t2.$3,
+            t2.$4,
+            t2.$5,
+            t2.$6,
+            t2.$7
+        );
