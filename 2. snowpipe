@@ -1,0 +1,9 @@
+-- snowpipe
+create or replace pipe pip_marketintelligence 
+auto_ingest = true
+error_integration = aws_sns_notification
+comment = 'aws s3 >> snowpipe >> snowflake' as 
+copy into db.public.marketintelligence 
+from @s3_stage
+file_format = (format_name = 'csv_header')
+pattern = '.*marketintelligence.*.csv';
