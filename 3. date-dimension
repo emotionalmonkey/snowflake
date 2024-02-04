@@ -1,0 +1,83 @@
+CREATE OR REPLACE PROCEDURE USP_GENERATE_BUSINESSCALENDAR(startDate DATE, endDate DATE)
+    RETURNS TABLE()
+    LANGUAGE SQL COMMENT = 'Generate calendar dates for the date dimension. Fiscal year: July-June' EXECUTE
+    AS CALLER
+    AS DECLARE 
+    totalDays := DATEDIFF(DAY, startDate, endDate) + 1;
+    res resultset default (
+        SELECT
+            *
+        FROM
+            (
+                SELECT
+                    NULL AS DateKey,
+                    NULL AS CalendarDate,
+                    NULL AS CalendarYear,
+                    NULL AS FiscalYear,
+                    NULL AS CalendarQuarter,
+                    NULL AS FiscalQuarter,
+                    NULL AS CalendarMonth,
+                    NULL AS FiscalMonth,
+                    NULL AS MonthName,
+                    NULL AS DayOfMonth,
+                    NULL AS DayOfWeek,
+                    NULL AS WeekStart,
+                    NULL AS WeekEnd
+            ) x
+        WHERE
+            datekey IS NOT NULL
+        );
+BEGIN 
+    IF (totalDays < 0) THEN 
+        RETURN TABLE(res);
+    END IF;
+    res := (
+            SELECT
+                TO_VARCHAR(tstamp, 'YYYYMMDD') AS DateKey,
+                tstamp AS CalendarDate,
+                YEAR(tstamp) AS CalendarYear,
+                IFF(
+                    MONTH(tstamp) < 7,
+                    YEAR(tstamp),
+                    YEAR(tstamp) + 1
+                ) AS FiscalYear,
+                QUARTER(tstamp) AS CalendarQuarter,
+                QUARTER(tstamp) + IFF(QUARTER(tstamp) < 3, 2, -2) AS FiscalQuarter,
+                MONTH(tstamp) AS CalendarMonth,
+                MONTH(tstamp) + IFF(MONTH(tstamp) < 7, 6, -6) AS FiscalMonth,
+                TO_VARCHAR(tstamp, 'MMMM') AS MonthName,
+                DAYOFMONTH(tstamp) AS DayOfMonth,
+                DAYOFWEEKISO(tstamp) AS DayOfWeek, -- ISO Week 1-7, 7 is Sunday                
+                DATEADD(
+                    DAY,
+                    - IFF(DAYOFWEEK(tstamp) = 0, 6, DAYOFWEEK(tstamp) -1),
+                    tstamp
+                ) AS WeekStart,
+                DATEADD(
+                    DAY,
+                    6 - IFF(DAYOFWEEK(tstamp) = 0, 6, DAYOFWEEK(tstamp) -1),
+                    tstamp
+                ) AS WeekEnd
+            FROM
+                (
+                    SELECT
+                        ROW_NUMBER() OVER (
+                            ORDER BY
+                                seq4()
+                        ) AS n,
+                        DATEADD(
+                            DAY,
+                            ROW_NUMBER() OVER (
+                                ORDER BY
+                                    seq4()
+                            ) -1,
+                            (:startDate)
+                        ) AS tstamp
+                    FROM
+                        TABLE(generator(rowCount => (:totalDays)))
+                ) c
+            ORDER BY
+                n ASC
+        );
+RETURN TABLE(res);
+END;
