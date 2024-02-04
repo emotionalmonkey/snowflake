@@ -1,0 +1,34 @@
+-- s3 integration
+create storage integration s3_integration
+type = external_stage 
+storage_provider = S3 
+enabled = true 
+storage_aws_iam_user_arn = 'arn user' 
+storage_aws_role_arn = '<iam_role>' 
+storage_allowed_locations = ('s3://<bucket>/<path>/', 's3://<bucket>/<path>/') 
+[storage_blocked_locations = ('s3://<bucket>/<path>/', 's3://<bucket>/<path>/') ];
+
+-- create s3 stage --
+create or replace stage s3_stage
+storage_integration = s3_integration
+url = 's3 bucket url';
+
+-- csv file format
+alter file format csv_header set
+compression = 'auto' 
+field_delimiter = ',' 
+record_delimiter = '\n' 
+skip_header = 1 
+trim_space = true 
+error_on_column_count_mismatch = true
+date_format = 'auto' 
+timestamp_format = 'auto' null_if = ('');
+
+-- aws_sns_notification 
+create or replace notification integration aws_sns_notification
+enabled = true 
+type = queue 
+notification_provider = aws_sns 
+direction = outbound 
+aws_sns_topic_arn = 'aws sns topic' 
+aws_sns_role_arn = 'aws role';
