@@ -1,0 +1,84 @@
+-- Working with VARIANT data type
+-- Input data - json string
+/*
+ "metafield": {
+    "id": 1069228957,
+    "namespace": "my_fields",
+    "key": "sponsor",
+    "value": "Shopify",
+    "description": null,
+    "owner_id": 382285388,
+    "created_at": "2024-01-02T09:08:56-05:00",
+    "updated_at": "2024-01-02T09:08:56-05:00",
+    "owner_resource": "blog",
+    "type": "single_line_text_field",
+    "admin_graphql_api_id": "gid://shopify/Metafield/1069228957"
+  }
+*/
+CREATE OR REPLACE PROCEDURE USP_METAFIELDS(IN_METAFIELDS VARIANT)
+RETURNS VARCHAR(50)
+LANGUAGE SQL
+COMMENT='Insert or updated Metafields (customized fields) from the Shopify API.'
+EXECUTE AS CALLER
+AS BEGIN 
+    MERGE INTO METAFIELDS
+        AS target USING (
+            SELECT
+                value:"id"::NUMBER(19, 0) AS id,
+                value:"namespace"::VARCHAR(100) AS namespace,
+                value:"key"::VARCHAR(50) AS key,
+                value:"value"::VARCHAR(100) AS value,
+                value:"description" AS description,
+                value:"owner_id"::NUMBER(19, 0) AS owner_id,
+                value:"created_at"::TIMESTAMP_NTZ(9) AS created_at,
+                value:"updated_at"::TIMESTAMP_NTZ(9) AS updated_at,
+                value:"owner_resource"::VARCHAR(100) AS owner_resource,
+                value:"type"::VARCHAR(100) AS type,
+                value:"admin_graphql_api_id"::VARCHAR(500) AS admin_graphql_api_id
+            FROM
+                TABLE(flatten(input => :IN_METAFIELDS)) -- Flatten the VARIANT array
+        ) AS source ON target.ID = source.ID
+    WHEN MATCHED THEN
+        UPDATE SET
+            target.NAMESPACE = source.NAMESPACE,
+            target.KEY = source.KEY,
+            target.VALUE = source.VALUE,
+            target.DESCRIPTION = NULLIF(source.DESCRIPTION,''),
+            target.OWNER_ID = source.OWNER_ID,
+            target.CREATED_AT = source.CREATED_AT,
+            target.UPDATED_AT = source.UPDATED_AT,
+            target.OWNER_RESOURCE = source.OWNER_RESOURCE,
+            target.TYPE = source.TYPE,
+            target.ADMIN_GRAPHQL_API_ID = source.ADMIN_GRAPHQL_API_ID,
+            target.LAST_UPDATED_DATE = CURRENT_TIMESTAMP() -- System updated date
+    WHEN NOT MATCHED THEN
+        INSERT
+            (
+                ID,
+                NAMESPACE,
+                KEY,
+                VALUE,
+                DESCRIPTION,
+                OWNER_ID,
+                CREATED_AT,
+                UPDATED_AT,
+                OWNER_RESOURCE,
+                TYPE,
+                ADMIN_GRAPHQL_API_ID
+            )
+        VALUES
+            (
+                source.ID,
+                source.NAMESPACE,
+                source.KEY,
+                source.VALUE,
+                NULLIF(source.DESCRIPTION,''),
+                source.OWNER_ID,
+                source.CREATED_AT,
+                source.UPDATED_AT,
+                source.OWNER_RESOURCE,
+                source.TYPE,
+                source.ADMIN_GRAPHQL_API_ID
+            );
+        RETURN 'Affected rows - ' || SQLROWCOUNT;
+END;
