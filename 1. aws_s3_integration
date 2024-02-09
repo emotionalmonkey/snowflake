@@ -14,7 +14,7 @@ storage_integration = s3_integration
 url = 's3 bucket url';
 
 -- csv file format
-alter file format csv_header set
+create file format csv_header
 compression = 'auto' 
 field_delimiter = ',' 
 record_delimiter = '\n' 
