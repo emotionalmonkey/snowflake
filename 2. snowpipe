@@ -1,9 +1,23 @@
--- snowpipe
+-- snowpipe with a csv file type
+-- use the file format csv_header created at https://github.com/emotionalmonkey/snowflake/edit/main/1.%20aws_s3_integration
 create or replace pipe pip_marketintelligence 
 auto_ingest = true
-error_integration = aws_sns_notification
+error_integration = 'aws_sns_notification'
 comment = 'aws s3 >> snowpipe >> snowflake' as 
 copy into db.public.marketintelligence 
 from @s3_stage
 file_format = (format_name = 'csv_header')
 pattern = '.*marketintelligence.*.csv';
+
+-- snowpipe with a json file type
+-- file path in S3: /path1/path2/xxxxx.json
+create or replace pipe pip_campaign
+auto_ingest=true 
+error_integration='aws_sns_notification' 
+comment='aws s3 >> snowpipe >> snowflake' as 
+copy into db.public.campaign  
+from @s3_stage
+file_format = (type = 'json' strip_outer_array = true)
+pattern = '.*path1.path2.*[.]json'
+match_by_column_name = case_insensitive;
+
