@@ -1,0 +1,54 @@
+# Import python packages
+import streamlit as st
+from snowflake.snowpark.context import get_active_session
+
+# App Title
+st.title("Sample Streamlit App: Top 3 Crop Protection Problems")
+st.write(
+    """Replace this example with your own code!
+    **And if you're new to Streamlit,** check
+    out our easy-to-follow guides at
+    [docs.streamlit.io](https://docs.streamlit.io).
+    """
+)
+
+# Get the current credentials
+session = get_active_session()
+
+#  Get top 3 problems
+df = session.sql(f"""select
+    quarter,
+    problem,
+    count
+from
+    (
+        select
+            p.Name as problem,
+            b.fyquarter as quarter,
+            count(1) as Count,
+            rank() over (
+                partition by b.fyquarter
+                order by
+                    count(1) desc
+            ) as rank
+        from
+            cropprotection cp
+            inner join problem p on cp.problemid = p.problemid
+            inner join businesscalendar b on b.calendardate = cp.problemsolveddate
+        group by
+            p.Name,
+            b.fyquarter
+    ) x
+where
+    rank <= 3""")
+
+# Execute the query and convert it into a Pandas dataframe
+queried_data = df.to_pandas()
+
+# Create a simple bar chart
+# See docs.streamlit.io for more types of charts
+st.subheader("Top 3 problems in each quarter")
+st.bar_chart(data=queried_data, x="QUARTER", y="PROBLEM")
+
+st.subheader("Underlying data")
+st.dataframe(queried_data, use_container_width=True)
