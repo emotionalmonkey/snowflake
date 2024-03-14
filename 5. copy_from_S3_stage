@@ -1,3 +1,0 @@
-copy into db.public.location 
-from @s3_stage/location.csv
-file_format = (format_name = 'csv_header');
